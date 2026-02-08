@@ -29,9 +29,10 @@ def run_game(directory: str, command: str, package: str, app: str, on_end: Calla
     path = os.path.join(directory, command)
     
     # 2. Ensure the game is executable.
+    LOGGER.info(f"Preparing the game to be run: {path}")
     success, path_, error = ensure_executable(path)
     if not success:
-        LOGGER.error(f"The game could not be run: {error}")
+        LOGGER.error(f"The game could not be prepared to run: {error}")
         return
 
     # 3. Run the game.
