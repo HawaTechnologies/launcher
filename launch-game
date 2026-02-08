@@ -48,13 +48,13 @@ def start_process(xml_file: str):
     try:
         with open(xml_file) as f:
             soup = BeautifulSoup(f, "xml")
-        # <hawa-game arch="{...}">{...}</hawa-game> contains everything.
+        # <hawa-game>{...}</hawa-game> contains everything.
         hawa_game = soup.find("hawa-game")
         # >> <game-id package="{...}" app="{...}" />.
         game_id = hawa_game.find("game-id")
         package = game_id.attrs.get('package', '')
         app = game_id.attrs.get('app', '')
-        # >> <command text="{...}">.
+        # >> <command>{...}</command>.
         directory = os.path.dirname(xml_file)
         command = hawa_game.find("command").text or ''
     except Exception:
