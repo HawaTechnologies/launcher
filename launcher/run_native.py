@@ -5,6 +5,7 @@ import threading
 from typing import Callable
 from .hotkeys import do_on_hotkey
 from .saves import load_dragonshark_save, store_dragonshark_save
+from .native_helpers import ensure_executable
 
 
 LOGGER = logging.getLogger("launch-server:run-native")
@@ -25,11 +26,18 @@ def run_game(directory: str, command: str, package: str, app: str, on_end: Calla
     # 1. Load the current game's saves.
     LOGGER.info("Preparing save directory")
     load_dragonshark_save(package, app)
+    path = os.path.join(directory, command)
+    
+    # 2. Ensure the game is executable.
+    success, path_, error = ensure_executable(path)
+    if not success:
+        LOGGER.error(f"The game could not be run: {error}")
+        return
 
-    # 2. Run the game.
+    # 3. Run the game.
     LOGGER.info("Running the game")
     subprocess.run(["sudo", "xhost", "+si:localuser:gamer"])
-    process = subprocess.Popen(["sudo", "-u", "gamer", os.path.join(directory, command)], env=dict(os.environ, DISPLAY=":0", XAUTHORITY="/home/gamer/.Xauthority"))
+    process = subprocess.Popen(["sudo", "-u", "gamer", path], env=dict(os.environ, DISPLAY=":0", XAUTHORITY="/home/gamer/.Xauthority"))
 
     def _func():
         process.wait()
