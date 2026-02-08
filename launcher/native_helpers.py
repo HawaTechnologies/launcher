@@ -108,7 +108,7 @@ def ensure_executable(script_path):
         return False, None, f"File does not exist: {script_path}"
     
     # Step 2: Check if already executable
-    if has_execute_permission(script_path):
+    if _has_execute_permission(script_path):
         return True, script_path, None
     
     # Try simple chmod first
