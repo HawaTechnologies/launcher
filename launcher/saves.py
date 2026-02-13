@@ -103,6 +103,6 @@ def load_dragonshark_save(package_base: str, app: str):
         # Then, chown and chmod everything so "gamer" user can take it.
         # At most 15mb can be moved this way.
         f"chown -R pi:gamer {target}",
-        f"chmod -R 0700 {target}"
+        f"chmod -R 0770 {target}"
     ]
     os.system(' && '.join(instructions))
