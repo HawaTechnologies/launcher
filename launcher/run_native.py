@@ -38,7 +38,7 @@ def run_game(directory: str, command: str, package: str, app: str, on_end: Calla
     # 3. Run the game.
     LOGGER.info("Running the game")
     subprocess.run(["sudo", "xhost", "+si:localuser:gamer"])
-    process = subprocess.Popen(["sudo", "-u", "gamer", path], env=dict(os.environ, DISPLAY=":0", XAUTHORITY="/home/gamer/.Xauthority"))
+    process = subprocess.Popen(["sudo", "-H", "-u", "gamer", path], env=dict(os.environ, DISPLAY=":0", XAUTHORITY="/home/pi/.Xauthority"))
 
     def _func():
         process.wait()
