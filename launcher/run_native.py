@@ -5,7 +5,7 @@ import threading
 from typing import Callable
 from .hotkeys import do_on_hotkey
 from .saves import load_dragonshark_save, store_dragonshark_save
-from .native_helpers import ensure_executable
+from .native_helpers import ensure_executable, get_env_for_user
 
 
 LOGGER = logging.getLogger("launch-server:run-native")
@@ -37,8 +37,16 @@ def run_game(directory: str, command: str, package: str, app: str, on_end: Calla
 
     # 3. Run the game.
     LOGGER.info("Running the game")
-    subprocess.run(["sudo", "-u", "pi", "xhost", "+si:localuser:gamer"])
-    process = subprocess.Popen(["sudo", "-H", "-u", "gamer", path], env=dict(os.environ, DISPLAY=":0", XAUTHORITY="/home/pi/.Xauthority"))
+    pi_env = get_env_for_user("pi")
+    env_ = dict(
+        os.environ,
+        DISPLAY=pi_env.get("DISPLAY", ""),
+        XAUTHORITY=pi_env.get("XAUTHORITY", ""),
+        XDG_RUNTIME_DIR=pi_env.get("XDG_RUNTIME_DIR", ""),
+        DBUS_SESSION_BUS_ADDRESS=pi_env.get("DBUS_SESSION_BUS_ADDRESS", ""),
+    )
+    subprocess.run(["sudo", "-u", "pi", "xhost", "+si:localuser:gamer"], env=env_, cwd="/home/gamer")
+    process = subprocess.Popen(["sudo", "-H", "-u", "gamer", path], env=env_, cwd="/home/gamer")
 
     def _func():
         process.wait()

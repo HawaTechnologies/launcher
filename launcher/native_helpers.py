@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import pwd
 import subprocess
 import stat
 from pathlib import Path
@@ -143,3 +144,76 @@ def ensure_executable(script_path):
         return True, script_path, None
     else:
         return False, None, "File still not executable after remount"
+
+def get_env_for_user(username: str) -> dict:
+    """
+    Return a minimal, correct environment for the *running X11 session*
+    of `username`.
+
+    This is intended for root/system services that need to spawn GUI
+    programs under another user.
+
+    Raises RuntimeError if no X session is found.
+    """
+
+    pw = pwd.getpwnam(username)
+    uid = pw.pw_uid
+
+    # 1) Find a process that belongs to the user's X session
+    # Order matters: prefer session managers, then WMs, then Xorg
+    candidates = [
+        "lxsession",
+        "openbox",
+        "xfce4-session",
+        "gnome-session",
+        "Xorg",
+        "Xwayland",
+    ]
+
+    ps = subprocess.run(
+        ["ps", "-u", str(uid), "-o", "pid=,comm="],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    pid = None
+    for line in ps.stdout.splitlines():
+        p, cmd = line.strip().split(None, 1)
+        if cmd in candidates:
+            pid = int(p)
+            break
+
+    if pid is None:
+        raise RuntimeError(f"No X session found for user '{username}'")
+
+    # 2) Read the environment of that process
+    env = {}
+    with open(f"/proc/{pid}/environ", "rb") as f:
+        for entry in f.read().split(b"\0"):
+            if b"=" not in entry:
+                continue
+            k, v = entry.split(b"=", 1)
+            k = k.decode()
+            v = v.decode()
+
+            # Keep only what matters for GUI apps
+            if k in {
+                "DISPLAY",
+                "XAUTHORITY",
+                "DBUS_SESSION_BUS_ADDRESS",
+                "XDG_RUNTIME_DIR",
+                "XDG_SESSION_TYPE",
+                "WAYLAND_DISPLAY",
+            }:
+                env[k] = v
+
+    # 3) Sanity checks (fail fast, not mysteriously later)
+    if "DISPLAY" not in env:
+        raise RuntimeError(f"DISPLAY not found in X session env for '{username}'")
+
+    # XAUTHORITY is not always exported, but if absent we can infer it
+    if "XAUTHORITY" not in env:
+        env["XAUTHORITY"] = os.path.join(pw.pw_dir, ".Xauthority")
+
+    return env
