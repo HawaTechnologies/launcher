@@ -1,4 +1,9 @@
 import os
+import shutil
+from pathlib import Path
+from typing import List, Tuple
+from .yesbut import enumerate
+
 
 # This is the partition where all the Dragonshark saves exist.
 # This partition is ext4 and everything there will be owned by
@@ -33,6 +38,40 @@ CURRENT_SAVE_DISK = "/mnt/CURRENT_SAVE"
 CURRENT_SAVE_LOCATION = CURRENT_SAVE_DISK
 
 
+def _copy(*, from_dir: str | Path, to_dir: str | Path, what: str) -> None:
+    """
+    Copy {from_dir}/{what} -> {to_dir}/{what}.
+
+    Preconditions (per your spec):
+      - from_dir and to_dir exist, are writable directories
+      - what is a relative path
+      - {from_dir}/{what} exists
+      - Must ensure {to_dir}/{what} exists (create intermediate dirs as needed)
+    """
+    src_root = Path(from_dir)
+    dst_root = Path(to_dir)
+
+    # what is relative (precondition), but we still normalize it
+    rel = Path(what)
+
+    src = (src_root / rel)
+    dst = (dst_root / rel)
+
+    if src.is_dir():
+        # Ensure destination directory exists, including parents
+        dst.mkdir(parents=True, exist_ok=True)
+
+        # Copy contents of src into dst (merge-style)
+        # (Python 3.8+)
+        shutil.copytree(src, dst, dirs_exist_ok=True, copy_function=shutil.copy2)
+    else:
+        # Ensure parent directories exist
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy file (preserve metadata)
+        shutil.copy2(src, dst)
+
+
 def get_dragonshark_game_save_path(package_base: str, app: str):
     """
     Generates the save directory for a game.
@@ -44,13 +83,14 @@ def get_dragonshark_game_save_path(package_base: str, app: str):
     return f"{DRAGONSHARK_SAVES_LOCATION}/{package_base}/{app}"
 
 
-def store_dragonshark_save(package_base: str, app: str):
+def store_dragonshark_save(package_base: str, app: str, save_filters: List[Tuple[str, List[str]]]):
     """
     Stores a save from a game, if available. This implies copying
     everything from the /mnt/CURRENT_SAVE into /mnt/SAVES into the
     proper package/app directory.
     :param package_base: The package base. Presumed as validated.
     :param app: The app name. Presumed as validated.
+    :param save_filters: The save filters.
     """
 
     source = CURRENT_SAVE_LOCATION
@@ -58,6 +98,13 @@ def store_dragonshark_save(package_base: str, app: str):
     # First, touch the tmp/target directories to ensure they exist.
     # The source directory already exists.
     os.system(f"mkdir -p {SAVES_DISK}/~tmp && mkdir -p {target}")
+
+    # Copy all the allowed elements.
+    for element in enumerate(save_filters, CURRENT_SAVE_LOCATION):
+        relative_element = element[len(CURRENT_SAVE_LOCATION)+1:]
+        if not relative_element:
+            continue
+        _copy(from_dir=CURRENT_SAVE_LOCATION, to_dir=target, what=relative_element)
 
     instructions = [
         # Remember that these all instructions will be executed by root,

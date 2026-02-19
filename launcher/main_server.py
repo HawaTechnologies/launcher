@@ -6,6 +6,7 @@ import logging
 import subprocess
 import socketserver
 import traceback
+from typing import List, Tuple
 from . import run_web, run_native
 
 
@@ -44,7 +45,7 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
         be parsed like this (other lines will be discarded).
         The line will be JSON, with specific fields: "package",
         "app", "directory", "command".
-        :return: A (package, app, directory, command) tuple.
+        :return: A (package, app, directory, command, save_filters) tuple.
         """
 
         # Read the JSON payload from the socket.
@@ -60,7 +61,7 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
 
         # Extract the fields and return them.
         obj = json.loads(payload.strip().decode("utf-8"))
-        return obj["package"], obj["app"], obj["directory"], obj["command"]
+        return obj["package"], obj["app"], obj["directory"], obj["command"], obj["save_filters"]
 
     def _get_executable_type(self, real_directory_path: str, command_path: str):
         """
@@ -84,7 +85,7 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
 
         # Parse the payload and validate values are present.
         try:
-            package, app, directory, command = self._recv_command()
+            package, app, directory, command, save_filters = self._recv_command()
             package, app, directory, command = package.strip(), app.strip(), directory.strip(), command.strip()
             if not all([directory, app, package, command]):
                 raise KeyError()
@@ -115,7 +116,8 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
             return
 
         # Launch the executable. This may raise more errors.
-        self._launch_executable(real_directory_path, real_relative_command_path, package, app)
+        self._launch_executable(real_directory_path, real_relative_command_path, package, app,
+                                save_filters or [["/", []]])
 
         # Close the socket
         self.request.close()
@@ -124,7 +126,8 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
         serialized_response = json.dumps(response).encode("utf-8")
         self.request.sendall(serialized_response + b"\n")
 
-    def _launch_executable(self, real_directory_path: str, real_relative_command_path: str, package: str, app: str):
+    def _launch_executable(self, real_directory_path: str, real_relative_command_path: str, package: str, app: str,
+                           save_filters: List[Tuple[str, List[str]]]):
         """
         Launches the game. This includes:
         - Lock test-and-set.
@@ -156,7 +159,8 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
 
         try:
             if format != "web":
-                run_native.run_game(real_directory_path, real_relative_command_path, package, app, _release)
+                run_native.run_game(real_directory_path, real_relative_command_path, package, app,
+                                    save_filters, _release)
             else:
                 run_web.run_game(real_directory_path, real_relative_command_path, package, app, _release)
         except Exception as e:
