@@ -117,7 +117,7 @@ class GameLauncherRequestHandler(socketserver.StreamRequestHandler):
 
         # Launch the executable. This may raise more errors.
         self._launch_executable(real_directory_path, real_relative_command_path, package, app,
-                                save_filters or [["/", []]])
+                                save_filters)
 
         # Close the socket
         self.request.close()

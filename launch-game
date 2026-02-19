@@ -6,6 +6,7 @@ import socket
 import logging
 import argparse
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 
 """
@@ -44,6 +45,81 @@ def _send_command(command):
             pass
 
 
+def _build_save_filters(node) -> List[Tuple[str, List[str]]]:
+    """
+    Builds the save filters.
+
+    Expected structure (direct children):
+      <save-filters>
+        <yes pattern="...">
+          <but pattern="..."/>
+          ...
+        </yes>
+        ...
+      </save-filters>
+
+    Normalization:
+      - patterns are treated as relative, but are normalized to always start with "/"
+      - backslashes are converted to "/"
+      - empty/missing patterns are ignored
+
+    :param node: The <save-filters /> to read the filters from.
+    :return: List of (yes_pattern, [but_pattern, ...]) in document order.
+             If node is falsy or contains no valid <yes>, returns [("/", [])].
+    """
+
+    def _norm(p: str) -> str:
+        """
+        Normalizes backslashes in the current pattern.
+        :param p: The pattern to normalize.
+        :return: The normalized pattern.
+        """
+
+        # Return "" on empty or missing pattern.
+        if not p:
+            return ""
+
+        # Normalize slash type and prepend a slash
+        # if it's missing.
+        p = (p or "").strip().replace("\\", "/")
+        if not p.startswith("/"):
+            p = "/" + p
+
+        # Normalize doble slashes to 1.
+        while "//" in p:
+            p = p.replace("//", "/")
+
+        # Good to go.
+        return p
+
+    # The node must be a tag.
+    if not node or not isinstance(node, Tag):
+        return [("/", [])]
+
+    out: List[Tuple[str, List[str]]] = []
+
+    # Only direct <yes> children (same as your earlier semantics)
+    for yes_tag in node.find_all("yes", recursive=False):
+        if not isinstance(yes_tag, Tag):
+            continue
+
+        yes_pat = _norm(yes_tag.get("pattern", ""))
+        if not yes_pat:
+            continue
+
+        buts: List[str] = []
+        for but_tag in yes_tag.find_all("but", recursive=False):
+            if not isinstance(but_tag, Tag):
+                continue
+            but_pat = _norm(but_tag.get("pattern", ""))
+            if but_pat:
+                buts.append(but_pat)
+
+        out.append((yes_pat, buts))
+
+    return out if out else [("/", [])]
+
+
 def start_process(xml_file: str):
     try:
         with open(xml_file) as f:
@@ -57,11 +133,13 @@ def start_process(xml_file: str):
         # >> <command>{...}</command>.
         directory = os.path.dirname(xml_file)
         command = hawa_game.find("command").text or ''
+        save_filters = _build_save_filters(hawa_game.find("save-filters"))
     except Exception:
         err("Could not read or understand the manifest file properly", 2)
         return
 
-    _send_command({"directory": directory, "command": command, "package": package, "app": app})
+    _send_command({"directory": directory, "command": command, "package": package, "app": app,
+                   "save_filters": save_filters})
 
 
 if __name__ == "__main__":
