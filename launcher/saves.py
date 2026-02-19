@@ -55,6 +55,10 @@ def store_dragonshark_save(package_base: str, app: str):
 
     source = CURRENT_SAVE_LOCATION
     target = get_dragonshark_game_save_path(package_base, app)
+    # First, touch the tmp/target directories to ensure they exist.
+    # The source directory already exists.
+    os.system(f"mkdir -p {SAVES_DISK}/~tmp && mkdir -p {target}")
+
     instructions = [
         # Remember that these all instructions will be executed by root,
         # actually (the service itself, which runs root, will be calling
@@ -63,11 +67,9 @@ def store_dragonshark_save(package_base: str, app: str):
         # First, copy the save, if any, into the SAVES_DISK/~tmp directory.
         # If these operations (actually: the second one) cannot be performed,
         # then this stops here: there's nothing to save.
-        f"mkdir -p {SAVES_DISK}/~tmp",
         f"cp -r {source}/* {SAVES_DISK}/~tmp",
         # Then, remove any previous target directory and move SAVES_DISK/~tmp
         # to this target directory.
-        f"mkdir -p {target}",
         f"rm -rf {target}",
         f"mv {SAVES_DISK}/~tmp {target}",
         # Finally, make a chown to pi:pi of all the new  files (since they'll
