@@ -36,7 +36,7 @@ CHROMIUM_BROWSER_ARGS = ["--disk-cache-size=0", "--enable-features=FileSystemAPI
                          "--disable-session-crashed-bubble", "--no-first-run", "--enable-offline-auto-reload",
                          "--autoplay-policy=no-user-gesture-required", "--deny-permission-prompts",
                          "--disable-search-geolocation-disclosure", "--enable-ipv6",
-                         "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'"]
+                         "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'", "--use-angle=gles"]
 
 
 def _start_http_server(directory: str, command: str) -> Tuple[str, HTTPServer]:
@@ -80,7 +80,7 @@ def _run_browser(save_directory: str, prefs_file: str, url: str):
 
     sudo = "DISPLAY=:0 sudo -u pi"
     custom = [f"--user-data-dir={save_directory}", f"--user-preferences-file={prefs_file}"]
-    chromium_command = sudo + ' ' + ' '.join(["chromium-browser"] + custom + CHROMIUM_BROWSER_ARGS + [url])
+    chromium_command = sudo + ' ' + ' '.join(["chromium"] + custom + CHROMIUM_BROWSER_ARGS + [url])
     return subprocess.Popen(chromium_command, shell=True)
 
 
