@@ -174,5 +174,6 @@ def launch_main_server():
     """
 
     os.system(f"rm {MAIN_BINDING}")
+    os.system(f"sudo mkdir -p {os.path.dirname(MAIN_BINDING)}")
     with GameLauncherServer(MAIN_BINDING, GameLauncherRequestHandler) as f:
         f.serve_forever()
