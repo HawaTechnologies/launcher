@@ -2,6 +2,8 @@
 
 A service that launches a Hawa game. Games are running using a special command described later.
 
+This service is compatible with Python 3.12.
+
 ## Installation
 
 Ensure you run this server always in the context of `root` user.
