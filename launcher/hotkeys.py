@@ -24,7 +24,7 @@ def _load_hotkey() -> Optional[Tuple[int, int]]:
 
     try:
         result = subprocess.run(
-            ["dragonshark-input-hotkeys-get"],
+            ["sudo", "-u", "pi", "dragonshark-input-hotkeys-get"],
             capture_output=True,
             text=True,
             check=False,
