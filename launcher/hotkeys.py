@@ -1,14 +1,11 @@
 import time
-from typing import Callable
+from typing import Callable, Optional, Tuple
 import pygame
 import logging
 import threading
 import subprocess
 
 
-SELECT = 8
-START = 9
-HOTKEY = (SELECT, START)
 TICKS_PER_SECOND = 2
 SLEEP_TIME = 1.0 / TICKS_PER_SECOND
 HOTKEY_HOLD_CHECK_TIME = 3 * TICKS_PER_SECOND
@@ -19,12 +16,50 @@ LOGGER = logging.getLogger("launch-server:hotkeys")
 LOGGER.setLevel(logging.INFO)
 
 
-def _gamepads_pressing_hotkey():
+def _load_hotkey() -> Optional[Tuple[int, int]]:
+    """
+    Loads the hotkey from dragonshark-input-hotkeys-get.
+    Returns None when loading/parsing/validation fails.
+    """
+
+    try:
+        result = subprocess.run(
+            ["dragonshark-input-hotkeys-get"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    parts = result.stdout.strip().split(" ")
+    if len(parts) < 6:
+        return None
+
+    try:
+        first = int(parts[0])
+        sixth = int(parts[5])
+    except ValueError:
+        return None
+
+    if first <= 0 or sixth <= 0:
+        return None
+
+    return first, sixth
+
+
+def _gamepads_pressing_hotkey(hotkey):
     """
     Gets the first gamepad, and also the current hotkey.
 
     :returns: The list of device NAMES holding the key.
     """
+
+    if hotkey is None:
+        return []
 
     # Process the pygame events.
     pygame.event.pump()
@@ -41,21 +76,11 @@ def _gamepads_pressing_hotkey():
         # connected, then check whether it is pressing the
         # hotkey or not.
         if joystick.get_init() and joystick.get_numaxes() > 0:
-            if all([joystick.get_button(key) for key in HOTKEY]):
+            if all([joystick.get_button(key) for key in hotkey]):
                 ids.append(joystick.get_name())
 
     # Return the matched joystick instances.
     return ids
-
-
-def _is_hotkey_pressed(gamepad, hotkey):
-    """
-    Tells whether the hotkey is pressed. By default, the hotkey
-    is START + SELECT.
-    """
-
-    pygame.event.pump()
-    return all([gamepad.get_button(key) for key in hotkey])
 
 
 def do_on_hotkey(check: Callable[[], bool], callback: Callable[[], None]):
@@ -65,6 +90,8 @@ def do_on_hotkey(check: Callable[[], bool], callback: Callable[[], None]):
     :param callback: The callback on the end.
     """
 
+    hotkey = _load_hotkey()
+
     def _func():
         pads = {}
         LOGGER.info("Starting hotkey-checker thread")
@@ -73,7 +100,7 @@ def do_on_hotkey(check: Callable[[], bool], callback: Callable[[], None]):
             # the termination key.
             keys = set(pads.keys())
             LOGGER.info("Getting gamepads pressing the hotkey")
-            holding_pads = _gamepads_pressing_hotkey()
+            holding_pads = _gamepads_pressing_hotkey(hotkey)
             if holding_pads:
                 LOGGER.info("Gamepads are: " + ", ".join(holding_pads))
             # For each identified pad, discard them from the keys
