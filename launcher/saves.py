@@ -101,7 +101,7 @@ def store_dragonshark_save(package_base: str, app: str, save_filters: List[Tuple
 
     # Copy all the allowed elements.
     for element in enumerate(save_filters, CURRENT_SAVE_LOCATION):
-        relative_element = element[len(CURRENT_SAVE_LOCATION)+1:]
+        relative_element = element[len(str(CURRENT_SAVE_LOCATION))+1:]
         if not relative_element:
             continue
         _copy(from_dir=CURRENT_SAVE_LOCATION, to_dir=target, what=relative_element)
